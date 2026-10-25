@@ -1,0 +1,24 @@
+# Packaged builds and local tooling
+*.ipk
+*.zip
+node_modules/
+.webos/
+
+# Local account and device data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*
+tokens*
+auth*.json
+device*.json
+
+# System and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
