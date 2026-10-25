@@ -1,0 +1,6 @@
+{
+  "name": "com.codex.jtvwebos.service",
+  "version": "0.3.18",
+  "description": "On-TV Jio API and stream bridge for JTV webOS",
+  "main": "jio_service.js"
+}
