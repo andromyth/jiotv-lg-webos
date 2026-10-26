@@ -17,7 +17,8 @@
     playbackToken: 0, playbackMode: '', hlsRetryTried: false, stallSince: 0, stallTimer: null, ignoreStallsUntil: 0,
     lastPlaybackTime: 0, lastProgressAt: 0, qualityStableSince: 0, lastQualityChangeAt: 0,
     qualityRecoveryTimer: null, controlsHideTimer: null, lowestQualityWarningShown: false, otpSent: false, userInteracted: false,
-    dashPlayer: null, dashTracks: []
+    dashPlayer: null, dashTracks: [],
+    programGuideVisible: false, epgProgrammes: [], epgCache: Object.create(null), epgRequestToken: 0, epgLoading: false, guideProgressTimer: null
   };
   const $ = (id) => document.getElementById(id);
   const elements = {
@@ -27,7 +28,10 @@
     signedIn: $('signed-in'), loginFields: $('login-fields'), settingsMessage: $('settings-message'),
     playerView: $('player-view'), player: $('player'), playerPrompt: $('player-prompt'), playerError: $('player-error'), controls: $('player-controls'),
     channelCount: $('channel-count'), nowTitle: $('now-title'), qualityStatus: $('quality-status'), toast: $('toast'),
-    tuneDisplay: $('tune-display'), tuneDigits: $('tune-digits')
+    tuneDisplay: $('tune-display'), tuneDigits: $('tune-digits'),
+    programGuide: $('program-guide'), guideChannel: $('guide-channel'), guideCurrentTitle: $('guide-current-title'),
+    guideCurrentTime: $('guide-current-time'), guideCurrentDescription: $('guide-current-description'),
+    guideProgress: $('guide-progress-fill'), guideProgressBar: $('guide-progress'), guideProgramList: $('guide-program-list'), guideStatus: $('guide-status')
   };
 
   function readStored(key, fallback) {
@@ -485,6 +489,7 @@
   }
   async function play(channel) {
     if (!channel) return;
+    if (state.programGuideVisible) closeProgramGuide();
     if (!state.auth || !state.auth.authToken) {
       showToast('Sign in with your Jio number in Settings to watch channels.'); openSettings(); return;
     }
@@ -613,7 +618,166 @@
     showPlayerError(`Jio stream failed: ${diagnosis}${code ? ` (media error ${code})` : ''}.`);
   }
   function showPlayerError(message) { revealPlayerControls(false); elements.playerError.textContent = message; elements.playerError.hidden = false; }
+  function isYellowButton(event) {
+    const code = event && (event.keyCode || event.which);
+    const key = String(event && event.key || "").toLowerCase();
+    return code === 405 || key === "yellow" || key === "colorf3";
+  }
+  function toEpochMilliseconds(value) {
+    if (value === undefined || value === null || value === "") return null;
+    if (typeof value === "number" || /^-?\\d+(?:\\.\\d+)?$/.test(String(value).trim())) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      return Math.abs(number) < 1000000000000 ? number * 1000 : number;
+    }
+    const parsed = Date.parse(String(value));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  function normalizeEpgProgrammes(items) {
+    const firstValue = (item, keys) => {
+      for (const key of keys) if (item[key] !== undefined && item[key] !== null && item[key] !== "") return item[key];
+      return null;
+    };
+    return (Array.isArray(items) ? items : []).map((item) => {
+      item = item || {};
+      const startMs = toEpochMilliseconds(firstValue(item, ['startEpoch', 'start_epoch', 'startTime', 'start_time', 'start', 'starttime']));
+      const endMs = toEpochMilliseconds(firstValue(item, ['endEpoch', 'end_epoch', 'endTime', 'end_time', 'end', 'stoptime']));
+      const rawTitle = firstValue(item, ['title', 'showname', 'programName', 'program_name', 'name']);
+      return {
+        startMs,
+        endMs,
+        title: rawTitle == null ? '' : String(rawTitle).trim(),
+        description: String(firstValue(item, ['description', 'desc', 'episodeDesc', 'episode_desc']) || '').trim(),
+        category: String(firstValue(item, ['category', 'showCategory', 'genre']) || '').trim()
+      };
+    }).filter((item) => item.title && Number.isFinite(item.startMs) && Number.isFinite(item.endMs) && item.endMs > item.startMs)
+      .sort((a, b) => a.startMs - b.startMs);
+  }
+  function formatGuideTime(timestamp) {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function setGuideStatus(message) {
+    elements.guideStatus.textContent = message || '';
+    elements.guideStatus.hidden = !message;
+  }
+  function renderProgramGuide() {
+    if (!state.programGuideVisible) return;
+    const now = Date.now();
+    const programmes = state.epgProgrammes || [];
+    const current = programmes.find((item) => item.startMs <= now && item.endMs > now) || null;
+    if (current) {
+      elements.guideCurrentTitle.textContent = current.title;
+      elements.guideCurrentTime.textContent = formatGuideTime(current.startMs) + ' – ' + formatGuideTime(current.endMs) + '  ·  LIVE';
+      elements.guideCurrentDescription.textContent = current.description || current.category || 'Programme currently airing on this channel.';
+      const duration = current.endMs - current.startMs;
+      const progress = duration > 0 ? Math.max(0, Math.min(100, ((now - current.startMs) / duration) * 100)) : 0;
+      elements.guideProgress.style.width = progress.toFixed(1) + '%';
+      elements.guideProgressBar.setAttribute('aria-valuenow', String(Math.round(progress)));
+    } else {
+      elements.guideCurrentTitle.textContent = 'Current programme unavailable';
+      elements.guideCurrentTime.textContent = '';
+      elements.guideCurrentDescription.textContent = 'The schedule may not include a listing for the current time.';
+      elements.guideProgress.style.width = '0%';
+      elements.guideProgressBar.setAttribute('aria-valuenow', '0');
+    }
+    clearElement(elements.guideProgramList);
+    const upcoming = programmes.filter((item) => item.startMs > now && item !== current).slice(0, 3);
+    if (!upcoming.length) {
+      const empty = document.createElement('div');
+      empty.className = 'guide-program-empty';
+      empty.textContent = state.epgLoading ? 'Loading upcoming programmes…' : 'No upcoming programme listings are available.';
+      elements.guideProgramList.append(empty);
+      return;
+    }
+    upcoming.forEach((programme) => {
+      const card = document.createElement('div');
+      card.className = 'guide-program-card';
+      const time = document.createElement('span');
+      time.className = 'guide-program-time';
+      time.textContent = formatGuideTime(programme.startMs) + ' – ' + formatGuideTime(programme.endMs);
+      const title = document.createElement('strong');
+      title.className = 'guide-program-title';
+      title.textContent = programme.title;
+      const description = document.createElement('span');
+      description.className = 'guide-program-description';
+      description.textContent = programme.description || programme.category || '';
+      card.append(time, title, description);
+      elements.guideProgramList.append(card);
+    });
+  }
+  function closeProgramGuide() {
+    if (!state.programGuideVisible) return;
+    state.programGuideVisible = false;
+    state.epgRequestToken++;
+    state.epgLoading = false;
+    if (state.guideProgressTimer) clearInterval(state.guideProgressTimer);
+    state.guideProgressTimer = null;
+    elements.programGuide.hidden = true;
+    elements.programGuide.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('program-guide-open');
+    if (state.active && !elements.player.paused && !elements.player.ended) {
+      clearPlayerControlsTimer();
+      document.body.classList.add('player-controls-hidden');
+      elements.controls.setAttribute('aria-hidden', 'true');
+    } else {
+      revealPlayerControls(false);
+    }
+  }
+  function openProgramGuide() {
+    if (!state.active) return;
+    state.programGuideVisible = true;
+    state.epgLoading = false;
+    const channel = state.active;
+    const channelId = String(channel.id);
+    const requestToken = ++state.epgRequestToken;
+    clearPlayerControlsTimer();
+    document.body.classList.add('program-guide-open', 'player-controls-hidden');
+    elements.controls.setAttribute('aria-hidden', 'true');
+    elements.programGuide.hidden = false;
+    elements.programGuide.setAttribute('aria-hidden', 'false');
+    elements.guideChannel.textContent = channel.title;
+    const cached = state.epgCache[channelId];
+    if (cached && cached.programmes) {
+      state.epgProgrammes = cached.programmes;
+      setGuideStatus(Date.now() - cached.fetchedAt < 180000 ? '' : 'Refreshing programme information…');
+    } else {
+      state.epgProgrammes = [];
+      setGuideStatus('Loading programme information…');
+    }
+    renderProgramGuide();
+    if (state.guideProgressTimer) clearInterval(state.guideProgressTimer);
+    state.guideProgressTimer = setInterval(renderProgramGuide, 30000);
+    if (cached && Date.now() - cached.fetchedAt < 180000) return;
+    state.epgLoading = true;
+    renderProgramGuide();
+    serviceCall('epg/get', { channelId: channelId, offset: 0 }).then((result) => {
+      if (requestToken !== state.epgRequestToken || !state.programGuideVisible || !state.active || String(state.active.id) !== channelId) return;
+      const programmes = normalizeEpgProgrammes(result.programmes || result.epg || result.result);
+      state.epgLoading = false;
+      if (programmes.length) {
+        state.epgProgrammes = programmes;
+        state.epgCache[channelId] = { programmes: programmes, fetchedAt: Date.now() };
+        setGuideStatus('');
+      } else {
+        state.epgProgrammes = [];
+        setGuideStatus('No programme schedule was returned for this channel.');
+      }
+      renderProgramGuide();
+    }).catch(() => {
+      if (requestToken !== state.epgRequestToken || !state.programGuideVisible || !state.active || String(state.active.id) !== channelId) return;
+      state.epgLoading = false;
+      setGuideStatus(state.epgProgrammes.length ? 'Could not refresh the guide; showing the last available schedule.' : 'Programme information is temporarily unavailable. Press Yellow to retry.');
+      renderProgramGuide();
+    });
+  }
+  function toggleProgramGuide() {
+    if (!state.active) return;
+    if (state.programGuideVisible) closeProgramGuide();
+    else openProgramGuide();
+  }
+
   function stopPlayback() {
+    closeProgramGuide();
     clearPlayerControlsTimer(); document.body.classList.remove('player-controls-hidden');
     state.playbackToken++; state.playbackMode = ''; state.hlsRetryTried = false; clearStallMonitor(); clearQualityRecovery(); state.qualityLevels = null; state.qualityIndex = 0;
     const previousChannelId = state.active && state.active.id;
@@ -735,6 +899,15 @@
       else if (/^Arrow(Up|Down)$/.test(direction) && moveFocus(direction)) event.preventDefault();
       return;
     }
+    if (state.active && isYellowButton(event)) {
+      event.preventDefault();
+      toggleProgramGuide();
+      return;
+    }
+    if (state.programGuideVisible && /^Arrow(Up|Down|Left|Right)$/.test(direction)) {
+      event.preventDefault();
+      return;
+    }
     if (!editable) {
       const keyCode = event.keyCode || event.which;
       const digit = /^[0-9]$/.test(event.key || '') ? event.key
@@ -752,6 +925,7 @@
     }
     const backPressed = event.keyCode === 461 || event.key === 'Escape' || (event.key === 'Backspace' && !editable);
     if (backPressed) {
+      if (state.programGuideVisible) { closeProgramGuide(); event.preventDefault(); return; }
       if (state.tuneBuffer) { clearTuneBuffer(); event.preventDefault(); return; }
       if (state.active) { event.preventDefault(); stopPlayback(); } else event.preventDefault();
       return;
@@ -768,7 +942,7 @@
     if (channels.length) play(channels[(index + delta + channels.length) % channels.length]);
   }
 
-  document.addEventListener('keydown', () => { state.userInteracted = true; if (state.active) revealPlayerControls(true); }, true);
+  document.addEventListener('keydown', () => { state.userInteracted = true; if (state.active && !state.programGuideVisible) revealPlayerControls(true); }, true);
   document.addEventListener('pointerdown', () => { state.userInteracted = true; if (state.active) revealPlayerControls(true); }, true);
   document.addEventListener('mousedown', () => { state.userInteracted = true; }, true);
   render(); updateAccountUI();
@@ -776,7 +950,7 @@
   loadChannels().then(() => {
     if (!elements.dialog.open && !state.active && !state.userInteracted) focusInitialHomeItem();
   });
-  window.addEventListener('beforeunload', () => { clearPlayerControlsTimer(); clearQualityRecovery(); destroyDashPlayer(); stopProxy(); });
+  window.addEventListener('beforeunload', () => { closeProgramGuide(); clearPlayerControlsTimer(); clearQualityRecovery(); destroyDashPlayer(); stopProxy(); });
   window.JTVWebOS = { getChannels: () => [...state.channels], reloadChannels: loadChannels, tuneToChannelId: (id) => {
     const channel = state.channels.find((item) => item.id === String(id));
     if (!channel) return false;
