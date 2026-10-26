@@ -297,7 +297,7 @@ function fetchEpgDay(channelId, dayOffset, allowDayCorrection) {
 
 function getEpg(channelId, offset) {
   var id = String(channelId == null ? "" : channelId);
-  if (!/^\\d{1,7}$/.test(id)) return Promise.reject(new Error("Invalid channel ID for programme guide."));
+  if (!/^\d{1,7}$/.test(id)) return Promise.reject(new Error("Invalid channel ID for programme guide."));
   var dayOffset = Number(offset);
   if (!isFinite(dayOffset)) dayOffset = 0;
   dayOffset = Math.max(-1, Math.min(1, Math.trunc(dayOffset)));
