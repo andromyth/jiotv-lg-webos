@@ -250,38 +250,95 @@ function getChannels() {
     });
 }
 
-function getEpg(channelId, offset) {
-  var id = String(channelId == null ? "" : channelId);
-  if (!/^\\d{1,7}$/.test(id)) return Promise.reject(new Error("Invalid channel ID for programme guide."));
-  var dayOffset = Number(offset);
-  if (!isFinite(dayOffset)) dayOffset = 0;
-  dayOffset = Math.max(-1, Math.min(1, Math.trunc(dayOffset)));
+function epgResponseRecords(json) {
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json && json.epg)) return json.epg;
+  if (Array.isArray(json && json.result)) return json.result;
+  if (Array.isArray(json && json.programmes)) return json.programmes;
+  return [];
+}
+
+function fetchEpgDay(channelId, dayOffset, allowDayCorrection) {
   var url = "https://jiotv.data.cdn.jio.com/apis/v1.3/getepg/get?offset=" +
-    encodeURIComponent(String(dayOffset)) + "&channel_id=" + encodeURIComponent(id);
+    encodeURIComponent(String(dayOffset)) + "&channel_id=" + encodeURIComponent(channelId);
   return requestJson(url, "GET", {
     "User-Agent": USER_AGENT,
     "Accept": "application/json",
     "Accept-Encoding": "identity"
   }).then(function(response) {
     if (response.status < 200 || response.status >= 300) {
-      throw new Error("Jio programme guide returned HTTP " + response.status + ".");
+      throw new Error("Jio programme guide returned HTTP " + response.status + " for offset " + dayOffset + ".");
     }
     var json = response.json || {};
-    var records = Array.isArray(json) ? json
-      : (Array.isArray(json.epg) ? json.epg
-        : (Array.isArray(json.result) ? json.result
-          : (Array.isArray(json.programmes) ? json.programmes : [])));
-    var programmes = records.map(function(item) {
-      item = item || {};
+    var records = epgResponseRecords(json);
+
+    // Jio's EPG service can return a schedule whose serverDate is one or more
+    // days behind the requested IST day. Detect that condition and retry using
+    // the corrected offset instead of displaying a stale schedule as "current".
+    var first = records.length ? records[0] : null;
+    var serverDateMs = first && first.serverDate ? Date.parse(String(first.serverDate)) : NaN;
+    if (allowDayCorrection && isFinite(serverDateMs)) {
+      var istOffsetMs = 5.5 * 60 * 60 * 1000;
+      var dayMs = 24 * 60 * 60 * 1000;
+      var expectedDay = Math.floor((Date.now() + istOffsetMs) / dayMs) + dayOffset;
+      var responseDay = Math.floor((serverDateMs + istOffsetMs) / dayMs);
+      var correction = expectedDay - responseDay;
+      if (correction > 0 && dayOffset + correction <= 7) {
+        return fetchEpgDay(channelId, dayOffset + correction, false).then(function(corrected) {
+          return corrected.length ? corrected : records;
+        }).catch(function() {
+          return records;
+        });
+      }
+    }
+    return records;
+  });
+}
+
+function getEpg(channelId, offset) {
+  var id = String(channelId == null ? "" : channelId);
+  if (!/^\\d{1,7}$/.test(id)) return Promise.reject(new Error("Invalid channel ID for programme guide."));
+  var dayOffset = Number(offset);
+  if (!isFinite(dayOffset)) dayOffset = 0;
+  dayOffset = Math.max(-1, Math.min(1, Math.trunc(dayOffset)));
+
+  // Fetch both the requested day and the following day so the guide includes
+  // the currently airing item and future programmes, including across midnight.
+  function settledDay(day) {
+    return fetchEpgDay(id, day, true).then(function(records) {
+      return { records: records, error: null };
+    }).catch(function(error) {
+      return { records: [], error: error };
+    });
+  }
+  return Promise.all([settledDay(dayOffset), settledDay(dayOffset + 1)]).then(function(results) {
+    var combined = [];
+    var seen = Object.create(null);
+    results.forEach(function(result) {
+      result.records.forEach(function(item) {
+        item = item || {};
+        var key = String(item.startEpoch != null ? item.startEpoch : (item.start_epoch != null ? item.start_epoch : item.startTime)) +
+          "|" + String(item.endEpoch != null ? item.endEpoch : (item.end_epoch != null ? item.end_epoch : item.endTime)) +
+          "|" + String(item.showname || item.title || item.programName || item.program_name || item.name || "");
+        if (!seen[key]) {
+          seen[key] = true;
+          combined.push(item);
+        }
+      });
+    });
+    if (!combined.length && results.every(function(result) { return result.error; })) {
+      throw results[0].error || results[1].error || new Error("Jio returned no programme data.");
+    }
+    var programmes = combined.map(function(item) {
       return {
         startEpoch: item.startEpoch != null ? item.startEpoch
           : (item.start_epoch != null ? item.start_epoch
             : (item.startTime != null ? item.startTime
-              : (item.start_time != null ? item.start_time : item.start))),
+              : (item.start_time != null ? item.start_time : (item.start != null ? item.start : item.starttime)))),
         endEpoch: item.endEpoch != null ? item.endEpoch
           : (item.end_epoch != null ? item.end_epoch
             : (item.endTime != null ? item.endTime
-              : (item.end_time != null ? item.end_time : item.end))),
+              : (item.end_time != null ? item.end_time : (item.end != null ? item.end : item.stoptime)))),
         title: item.showname || item.title || item.programName || item.program_name || item.name || "",
         description: item.description || item.desc || item.episodeDesc || item.episode_desc || "",
         category: item.showCategory || item.category || item.genre || "",
