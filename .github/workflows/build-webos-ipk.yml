@@ -9,6 +9,8 @@ on:
       - 'index.html'
       - 'styles.css'
       - 'appinfo.json'
+      - 'icon.png'
+      - 'largeIcon.png'
       - 'service/**'
       - '.github/workflows/build-webos-ipk.yml'
   pull_request:
@@ -19,6 +21,8 @@ on:
       - 'index.html'
       - 'styles.css'
       - 'appinfo.json'
+      - 'icon.png'
+      - 'largeIcon.png'
       - 'service/**'
       - '.github/workflows/build-webos-ipk.yml'
   workflow_dispatch:
