@@ -161,16 +161,18 @@ button:focus-visible, input:focus-visible { outline: 4px solid var(--accent-soft
   right: clamp(22px, 4vw, 72px);
   bottom: clamp(22px, 4.5vh, 54px);
   left: clamp(22px, 4vw, 72px);
-  max-height: 62vh;
+  max-height: 72vh;
   overflow: hidden auto;
-  padding: clamp(20px, 2.3vw, 34px);
-  border: 1px solid #ffffff30;
+  padding: clamp(24px, 2.5vw, 38px);
+  border: 1px solid #ffffff4a;
   border-radius: 22px;
-  background: rgba(7, 12, 18, .70);
-  box-shadow: 0 22px 72px #0008, inset 0 1px 0 #ffffff0d;
-  -webkit-backdrop-filter: blur(12px) saturate(115%);
-  backdrop-filter: blur(17px) saturate(125%);
-  color: #f5f7fa;
+  /* Light glass tint: keep the moving picture clearly visible underneath. */
+  background: rgba(7, 12, 18, .28);
+  box-shadow: 0 22px 60px #0007, inset 0 1px 0 #ffffff18;
+  -webkit-backdrop-filter: blur(3px) saturate(110%);
+  backdrop-filter: blur(3px) saturate(110%);
+  color: #f8fbff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .82);
   animation: program-guide-in .18s ease-out;
 }
 @keyframes program-guide-in {
@@ -185,29 +187,30 @@ button:focus-visible, input:focus-visible { outline: 4px solid var(--accent-soft
   margin-bottom: 22px;
 }
 .program-guide-eyebrow {
-  margin: 0 0 6px;
-  color: #9eabb9;
-  font-size: 11px;
+  margin: 0 0 8px;
+  color: #e0e8f1;
+  font-size: clamp(14px, 1.05vw, 17px);
   font-weight: 800;
-  letter-spacing: .16em;
+  letter-spacing: .11em;
 }
 .program-guide-channel h2 {
   margin: 0;
   color: #fff;
-  font-size: clamp(20px, 2.2vw, 30px);
-  font-weight: 750;
-  line-height: 1.15;
+  font-size: clamp(30px, 2.6vw, 42px);
+  font-weight: 800;
+  line-height: 1.12;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, .9);
 }
 .program-guide-dismiss {
   flex: 0 0 auto;
-  padding: 8px 11px;
-  border: 1px solid #ffffff28;
+  padding: 10px 14px;
+  border: 1px solid #ffffff55;
   border-radius: 999px;
-  color: #c1cad4;
-  background: #ffffff08;
-  font-size: 10px;
-  font-weight: 750;
-  letter-spacing: .08em;
+  color: #fff;
+  background: rgba(8, 13, 20, .24);
+  font-size: clamp(13px, .95vw, 16px);
+  font-weight: 800;
+  letter-spacing: .04em;
   white-space: nowrap;
 }
 .program-guide-content {
@@ -219,51 +222,54 @@ button:focus-visible, input:focus-visible { outline: 4px solid var(--accent-soft
 .guide-section-label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 13px;
-  color: #a7b1bd;
-  font-size: 10px;
+  gap: 10px;
+  margin-bottom: 15px;
+  color: #eef4fb;
+  font-size: clamp(14px, 1.05vw, 17px);
   font-weight: 850;
-  letter-spacing: .13em;
+  letter-spacing: .08em;
 }
 .guide-live-dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   background: #ff6d60;
   box-shadow: 0 0 10px #ff6d6070;
 }
 .guide-now h3 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: #fff;
-  font-size: clamp(17px, 1.65vw, 23px);
-  font-weight: 720;
+  font-size: clamp(25px, 2.05vw, 34px);
+  font-weight: 800;
   line-height: 1.25;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, .9);
 }
 .guide-current-time {
-  margin: 0 0 9px;
-  color: #e1e7ee;
-  font-size: 13px;
-  font-weight: 650;
+  margin: 0 0 12px;
+  color: #f0f5fb;
+  font-size: clamp(17px, 1.2vw, 21px);
+  font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
 .guide-current-description {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  min-height: 35px;
-  margin: 0 0 18px;
-  color: #aeb9c5;
-  font-size: 12px;
+  -webkit-line-clamp: 3;
+  min-height: 58px;
+  margin: 0 0 20px;
+  color: #e0e8f1;
+  font-size: clamp(16px, 1.05vw, 19px);
+  font-weight: 550;
   line-height: 1.5;
 }
 .guide-progress {
-  height: 4px;
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #ffffff23;
+  background: #ffffff3b;
 }
 .guide-progress span {
   display: block;
@@ -282,62 +288,65 @@ button:focus-visible, input:focus-visible { outline: 4px solid var(--accent-soft
 .guide-program-card {
   display: flex;
   min-width: 0;
-  min-height: 105px;
+  min-height: 124px;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  padding: 14px;
-  border: 1px solid #ffffff20;
-  border-radius: 13px;
-  background: rgba(255, 255, 255, .055);
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #ffffff3a;
+  border-radius: 15px;
+  /* Translucent cards, not solid blocks. */
+  background: rgba(7, 12, 18, .24);
+  box-shadow: inset 0 1px 0 #ffffff0d;
 }
 .guide-program-time {
-  color: #f3b79f;
-  font-size: 11px;
-  font-weight: 750;
+  color: #ffd0b9;
+  font-size: clamp(15px, 1vw, 18px);
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 .guide-program-title {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  color: #f6f8fb;
-  font-size: 13px;
-  font-weight: 730;
+  -webkit-line-clamp: 3;
+  color: #fff;
+  font-size: clamp(18px, 1.3vw, 23px);
+  font-weight: 800;
   line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .9);
 }
 .guide-program-description {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  color: #9ba7b4;
-  font-size: 10px;
-  line-height: 1.4;
+  color: #e1e9f2;
+  font-size: clamp(15px, 1vw, 17px);
+  line-height: 1.45;
 }
 .guide-program-empty {
   grid-column: 1 / -1;
   padding: 20px 0;
-  color: #aab5c0;
-  font-size: 12px;
+  color: #f0f5fb;
+  font-size: 17px;
 }
 .guide-status {
   margin: 16px 0 0;
   padding-top: 12px;
-  border-top: 1px solid #ffffff15;
-  color: #aab5c0;
-  font-size: 11px;
+  border-top: 1px solid #ffffff35;
+  color: #e0e8f1;
+  font-size: 15px;
 }
 .guide-status[hidden] { display: none; }
 @media (max-width: 900px) {
-  .program-guide { right: 18px; bottom: 18px; left: 18px; max-height: 70vh; padding: 18px; }
+  .program-guide { right: 18px; bottom: 18px; left: 18px; max-height: 80vh; padding: 24px; }
   .program-guide-content { grid-template-columns: minmax(0, 1fr); gap: 22px; }
-  .guide-program-card { min-height: 84px; padding: 11px; }
+  .guide-program-card { min-height: 100px; padding: 14px; }
 }
 @media (max-width: 560px) {
   .program-guide-header { align-items: flex-start; margin-bottom: 17px; }
-  .program-guide-dismiss { max-width: 130px; font-size: 8px; white-space: normal; text-align: center; }
+  .program-guide-dismiss { max-width: 160px; font-size: 13px; white-space: normal; text-align: center; }
   .guide-program-list { grid-template-columns: minmax(0, 1fr); }
   .guide-program-card { min-height: auto; }
 }
