@@ -70,6 +70,31 @@
           <div class="now-playing"><span class="live-dot"></span><div class="now-playing-copy"><span id="now-title">Choose a channel</span><small id="quality-status">Best available</small></div></div>
           <button id="play-toggle" class="control-button play-button" type="button" aria-label="Pause playback">Ⅱ</button>
         </div>
+        <section id="program-guide" class="program-guide" role="region" aria-label="Programme information" aria-hidden="true" hidden>
+          <div class="program-guide-header">
+            <div class="program-guide-channel">
+              <p class="program-guide-eyebrow">LIVE PROGRAMME GUIDE</p>
+              <h2 id="guide-channel">Current channel</h2>
+            </div>
+            <span class="program-guide-dismiss">YELLOW / BACK <span aria-hidden="true">·</span> CLOSE</span>
+          </div>
+          <div class="program-guide-content">
+            <section class="guide-now" aria-label="Currently airing programme">
+              <div class="guide-section-label"><span class="guide-live-dot"></span> NOW PLAYING</div>
+              <h3 id="guide-current-title">Loading programme information…</h3>
+              <p id="guide-current-time" class="guide-current-time"></p>
+              <p id="guide-current-description" class="guide-current-description"></p>
+              <div id="guide-progress" class="guide-progress" role="progressbar" aria-label="Current programme progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span id="guide-progress-fill"></span>
+              </div>
+            </section>
+            <section class="guide-upcoming" aria-label="Upcoming programmes">
+              <div class="guide-section-label">UP NEXT</div>
+              <div id="guide-program-list" class="guide-program-list"></div>
+            </section>
+          </div>
+          <p id="guide-status" class="guide-status" role="status" aria-live="polite" hidden></p>
+        </section>
       </div>
     </section>
 
