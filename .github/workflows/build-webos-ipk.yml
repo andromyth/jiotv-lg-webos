@@ -1,0 +1,67 @@
+name: Build webOS IPK
+
+on:
+  push:
+    branches:
+      - feature/yellow-button-epg-overlay
+    paths:
+      - 'app.js'
+      - 'index.html'
+      - 'styles.css'
+      - 'appinfo.json'
+      - 'service/**'
+      - '.github/workflows/build-webos-ipk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ipk:
+    name: Package JTV webOS app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/yellow-button-epg-overlay
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check service/com.codex.jtvwebos.service/jio_service.js
+
+      - name: Install webOS CLI
+        run: npm install --global @webos-tools/cli
+
+      - name: Package app and service into IPK
+        run: |
+          mkdir -p dist
+          ares-package -o dist . service/com.codex.jtvwebos.service
+
+      - name: Verify generated IPK
+        shell: bash
+        run: |
+          shopt -s nullglob
+          packages=(dist/*.ipk)
+          if [ "${#packages[@]}" -ne 1 ]; then
+            echo "Expected exactly one IPK, found ${#packages[@]}"
+            ls -la dist
+            exit 1
+          fi
+          ares-package --info "${packages[0]}"
+          echo "IPK_PATH=${packages[0]}" >> "$GITHUB_ENV"
+
+      - name: Upload installable IPK
+        uses: actions/upload-artifact@v4
+        with:
+          name: jtv-webos-yellow-epg-ipk
+          path: dist/*.ipk
+          if-no-files-found: error
+          retention-days: 14
