@@ -250,6 +250,48 @@ function getChannels() {
     });
 }
 
+function getEpg(channelId, offset) {
+  var id = String(channelId == null ? "" : channelId);
+  if (!/^\\d{1,7}$/.test(id)) return Promise.reject(new Error("Invalid channel ID for programme guide."));
+  var dayOffset = Number(offset);
+  if (!isFinite(dayOffset)) dayOffset = 0;
+  dayOffset = Math.max(-1, Math.min(1, Math.trunc(dayOffset)));
+  var url = "https://jiotv.data.cdn.jio.com/apis/v1.3/getepg/get?offset=" +
+    encodeURIComponent(String(dayOffset)) + "&channel_id=" + encodeURIComponent(id);
+  return requestJson(url, "GET", {
+    "User-Agent": USER_AGENT,
+    "Accept": "application/json",
+    "Accept-Encoding": "identity"
+  }).then(function(response) {
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error("Jio programme guide returned HTTP " + response.status + ".");
+    }
+    var json = response.json || {};
+    var records = Array.isArray(json) ? json
+      : (Array.isArray(json.epg) ? json.epg
+        : (Array.isArray(json.result) ? json.result
+          : (Array.isArray(json.programmes) ? json.programmes : [])));
+    var programmes = records.map(function(item) {
+      item = item || {};
+      return {
+        startEpoch: item.startEpoch != null ? item.startEpoch
+          : (item.start_epoch != null ? item.start_epoch
+            : (item.startTime != null ? item.startTime
+              : (item.start_time != null ? item.start_time : item.start))),
+        endEpoch: item.endEpoch != null ? item.endEpoch
+          : (item.end_epoch != null ? item.end_epoch
+            : (item.endTime != null ? item.endTime
+              : (item.end_time != null ? item.end_time : item.end))),
+        title: item.showname || item.title || item.programName || item.program_name || item.name || "",
+        description: item.description || item.desc || item.episodeDesc || item.episode_desc || "",
+        category: item.showCategory || item.category || item.genre || "",
+        poster: item.episodePoster || item.episodeThumbnail || item.poster || item.thumbnail || ""
+      };
+    });
+    return { channelId: id, programmes: programmes };
+  });
+}
+
 function tokenExpiry(token) {
   var text = String(token || "");
   var hdneaExpiry = /(?:^|[~&])exp=(\d+)/.exec(text);
@@ -946,6 +988,7 @@ register("auth/verifyOtp", function(payload) {
   });
 });
 register("library/getChannels", function() { return getChannels().then(function(channels) { return { channels: channels }; }); });
+register("epg/get", function(payload) { return getEpg(payload.channelId, payload.offset); });
 register("auth/refresh", function(payload) {
   authData = payload.auth || authData;
   return refreshAuth().then(function(auth) { return { auth: auth }; });
