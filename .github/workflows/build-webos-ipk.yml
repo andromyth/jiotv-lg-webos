@@ -3,7 +3,17 @@ name: Build webOS IPK
 on:
   push:
     branches:
-      - feature/yellow-button-epg-overlay
+      - '**'
+    paths:
+      - 'app.js'
+      - 'index.html'
+      - 'styles.css'
+      - 'appinfo.json'
+      - 'service/**'
+      - '.github/workflows/build-webos-ipk.yml'
+  pull_request:
+    branches:
+      - main
     paths:
       - 'app.js'
       - 'index.html'
@@ -22,10 +32,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out feature branch
+      - name: Check out commit under test
         uses: actions/checkout@v4
         with:
-          ref: feature/yellow-button-epg-overlay
+          ref: ${{ github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
