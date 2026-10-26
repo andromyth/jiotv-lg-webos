@@ -807,19 +807,70 @@
       return rect.width > 0 && rect.height > 0;
     });
   }
+  function focusAndReveal(element) {
+    if (!element) return false;
+    element.focus();
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    return true;
+  }
+  function gridColumnCount() {
+    const columns = window.getComputedStyle(elements.list).gridTemplateColumns
+      .trim().split(/\\s+/).filter(Boolean).length;
+    return Math.max(1, columns || 1);
+  }
+  function nearestHorizontalElement(elementsToCheck, sourceElement) {
+    if (!elementsToCheck.length) return null;
+    const sourceRect = sourceElement.getBoundingClientRect();
+    const sourceX = sourceRect.left + sourceRect.width / 2;
+    return elementsToCheck.reduce((best, element) => {
+      const rect = element.getBoundingClientRect();
+      const distance = Math.abs(rect.left + rect.width / 2 - sourceX);
+      return !best || distance < best.distance ? { element, distance } : best;
+    }, null).element;
+  }
   function moveFocus(direction) {
+    const current = document.activeElement;
+    const vertical = direction === 'ArrowUp' || direction === 'ArrowDown';
+
+    // Keep vertical navigation inside the channel grid. Generic screen-wide
+    // focus geometry can choose a genre chip while scrolling the channel list,
+    // especially when the list itself has been scrolled.
+    if (vertical && current && current.classList && current.classList.contains('channel-card')) {
+      const cards = Array.from(elements.list.querySelectorAll('.channel-card'));
+      const index = cards.indexOf(current);
+      if (index !== -1) {
+        const columns = gridColumnCount();
+        if (direction === 'ArrowUp') {
+          if (index >= columns) return focusAndReveal(cards[index - columns]);
+          // Only the first channel row may navigate upward to the genre row.
+          const genres = Array.from(elements.groups.querySelectorAll('.group-chip'));
+          return focusAndReveal(nearestHorizontalElement(genres, current)) || true;
+        }
+        // At the bottom of the grid, keep focus in the grid rather than
+        // jumping to unrelated controls. Repeated Down presses remain harmless.
+        const below = cards[index + columns];
+        return below ? focusAndReveal(below) : true;
+      }
+    }
+
+    // Down from a genre chip enters the first row of channels, choosing the
+    // tile closest to the chip's horizontal position.
+    if (direction === 'ArrowDown' && current && current.classList && current.classList.contains('group-chip')) {
+      const cards = Array.from(elements.list.querySelectorAll('.channel-card'));
+      const firstRow = cards.slice(0, gridColumnCount());
+      if (firstRow.length) return focusAndReveal(nearestHorizontalElement(firstRow, current));
+    }
+
     const scope = elements.dialog.open ? elements.dialog : (document.body.classList.contains('playing') ? elements.playerView : document);
     const candidates = focusableElements(scope);
-    const current = document.activeElement;
     if (!candidates.includes(current)) {
       const first = direction === 'ArrowUp' || direction === 'ArrowLeft' ? candidates[candidates.length - 1] : candidates[0];
-      if (first) { first.focus(); first.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); return true; }
+      if (first) { focusAndReveal(first); return true; }
       return false;
     }
     const currentRect = current.getBoundingClientRect();
     const currentX = currentRect.left + currentRect.width / 2;
     const currentY = currentRect.top + currentRect.height / 2;
-    const vertical = direction === 'ArrowUp' || direction === 'ArrowDown';
     const sign = direction === 'ArrowUp' || direction === 'ArrowLeft' ? -1 : 1;
     const options = candidates.filter((element) => element !== current).map((element) => {
       const rect = element.getBoundingClientRect();
@@ -832,8 +883,7 @@
     options.sort((a, b) => a.main - b.main || a.cross - b.cross);
     const next = options[0] && options[0].element;
     if (!next) return false;
-    next.focus(); next.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-    return true;
+    return focusAndReveal(next);
   }
   function focusInitialHomeItem() {
     const preferred = Array.from(elements.languages.querySelectorAll('button')).find((button) => button.dataset.language === state.language);
