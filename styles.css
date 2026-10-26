@@ -166,9 +166,9 @@ button:focus-visible, input:focus-visible { outline: 4px solid var(--accent-soft
   padding: clamp(20px, 2.3vw, 34px);
   border: 1px solid #ffffff30;
   border-radius: 22px;
-  background: rgba(7, 12, 18, .79);
+  background: rgba(7, 12, 18, .70);
   box-shadow: 0 22px 72px #0008, inset 0 1px 0 #ffffff0d;
-  -webkit-backdrop-filter: blur(17px) saturate(125%);
+  -webkit-backdrop-filter: blur(12px) saturate(115%);
   backdrop-filter: blur(17px) saturate(125%);
   color: #f5f7fa;
   animation: program-guide-in .18s ease-out;
