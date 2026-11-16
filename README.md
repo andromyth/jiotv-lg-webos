@@ -1,6 +1,6 @@
 # JTV for LG webOS — JioTV Live TV App for LG Smart TVs
 
-**JTV for LG webOS** is an unofficial, community-built JioTV app for compatible LG webOS Smart TVs. It provides TV-friendly remote navigation, Jio account sign-in, live channel playback, and language filters for Bengali, Hindi, and English. The project includes instructions for installing a webOS `.ipk` package through Developer Mode.
+**JTV for LG webOS** is an unofficial, community-built JioTV app for compatible LG webOS Smart TVs. It provides TV-friendly remote navigation, Jio account sign-in, live channel playback, and language filters with Hindi first. The project includes instructions for installing a webOS `.ipk` package through Developer Mode.
 
 > **Compatibility and access:** Playback depends on your Jio account and subscription, Jio's current service responses, and the TV's media/DRM support. This project is not affiliated with or endorsed by Jio or LG, and it does not bypass subscription or DRM checks.
 
@@ -15,7 +15,7 @@ This source tree contains no account credentials, OTPs, access tokens, device ad
 ## Features
 
 - Jio account sign-in from the TV with a one-time password.
-- Bengali as the default language filter, with Hindi and English filters.
+- Hindi as the default language filter, followed by Bengali, English and the rest.
 - Selecting the active category again clears only that category while retaining the selected language.
 - Remote-friendly navigation, direct channel-ID tuning, and a centered channel-ID overlay.
 - Best-quality-first HLS playback with step-down on sustained buffering and gradual recovery after stable playback.

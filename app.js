@@ -10,7 +10,7 @@
   const QUALITY_UPGRADE_COOLDOWN_MS = 60000;
   const PLAYER_CONTROLS_HIDE_MS = 4500;
   const state = {
-    channels: readStored(CHANNELS_KEY, []), group: 'all', language: readStored(LANGUAGE_KEY, 'bengali'), selected: -1,
+    channels: readStored(CHANNELS_KEY, []), group: 'all', language: readStored(LANGUAGE_KEY, 'hindi'), selected: -1,
     tuneBuffer: '', tuneTimer: null,
     active: null, auth: readStored(AUTH_KEY, null), proxyBaseUrl: '', proxyRequest: null,
     proxyPromise: null, loading: false, qualityLevels: null, qualityIndex: 0,
@@ -111,7 +111,7 @@
       button.dataset.group = group;
       button.addEventListener('click', () => {
         // Selecting the active category again clears only that category filter.
-        // Keep the current language choice (Bengali by default) untouched.
+        // Keep the current language choice (Hindi by default) untouched.
         state.group = state.group === group ? 'all' : group; state.selected = -1; syncRail(); render();
         const selected = Array.from(elements.groups.querySelectorAll('.group-chip')).find((item) => item.dataset.group === group);
         if (selected) selected.focus();
@@ -136,7 +136,7 @@
       if (channel.logo) {
         const img = document.createElement('img');
         img.src = channel.logo;
-        img.alt = '';
+        img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
         img.onerror = () => { logo.textContent = channel.title.slice(0, 1).toUpperCase(); };
         logo.append(img);
       } else logo.textContent = channel.title.slice(0, 1).toUpperCase();
@@ -144,7 +144,7 @@
       copy.className = 'channel-copy';
       const title = document.createElement('strong'); title.textContent = channel.title;
       const group = document.createElement('small'); group.textContent = channel.group;
-      copy.append(title, group);
+      const meta = document.createElement('span'); meta.className = 'channel-meta';
       const channelId = document.createElement('span');
       channelId.className = 'channel-id';
       const channelIdLabel = document.createElement('small');
@@ -153,7 +153,8 @@
       channelIdNumber.textContent = channel.id;
       channelId.append(channelIdLabel, channelIdNumber);
       channelId.setAttribute('aria-label', `Channel ID ${channel.id}`);
-      card.append(logo, copy, channelId);
+      meta.append(channelId, group); copy.append(title, meta);
+      card.append(logo, copy);
       if (favorites.has(channel.id)) { const star = document.createElement('span'); star.className = 'favorite'; star.textContent = '★'; card.append(star); }
       card.addEventListener('focus', () => { state.selected = index; });
       card.addEventListener('click', () => play(channel));
@@ -188,7 +189,7 @@
       const current = counts.get(key) || { count: 0, label: languageLabel(key, channel.language) };
       current.count++; counts.set(key, current);
     }
-    const preferred = ['bengali', 'hindi', 'english'];
+    const preferred = ['hindi', 'bengali', 'english'];
     const rest = [...counts.keys()].filter((key) => !preferred.includes(key)).sort((a, b) => counts.get(a).label.localeCompare(counts.get(b).label));
     const filters = [{ key: 'all', label: 'All', count: state.channels.length }];
     for (const key of [...preferred.filter((key) => counts.has(key)), ...rest]) filters.push({ key, label: counts.get(key).label, count: counts.get(key).count });
@@ -205,7 +206,11 @@
       elements.languages.append(button);
     }
   }
-  function syncRail() { document.querySelectorAll('.rail-item').forEach((item) => item.classList.toggle('selected', item.dataset.group === state.group)); }
+  function syncRail() {
+    // The rail's Hindi and All lists are language choices; Saved is a group.
+    const current = state.group !== 'all' ? state.group : (state.language === 'hindi' ? 'hindi' : (state.language === 'all' ? 'all' : ''));
+    document.querySelectorAll('.rail-item').forEach((item) => item.classList.toggle('selected', item.dataset.group === current));
+  }
 
   async function loadChannels() {
     state.loading = true; render(); setConnection(state.auth ? 'Connecting to Jio…' : 'Loading Jio channels…', false);
@@ -215,7 +220,7 @@
       localStorage.setItem(CHANNELS_KEY, JSON.stringify(state.channels));
       state.group = 'all';
       if (state.language !== 'all' && !state.channels.some((channel) => languageKey(channel.language) === state.language)) {
-        state.language = state.channels.some((channel) => languageKey(channel.language) === 'bengali') ? 'bengali' : 'all';
+        state.language = state.channels.some((channel) => languageKey(channel.language) === 'hindi') ? 'hindi' : 'all';
         localStorage.setItem(LANGUAGE_KEY, state.language);
       }
       setConnection(state.auth ? 'Jio account ready' : 'Sign in to watch', !!state.auth);
@@ -810,12 +815,12 @@
   function focusAndReveal(element) {
     if (!element) return false;
     element.focus();
-    element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     return true;
   }
   function gridColumnCount() {
     const columns = window.getComputedStyle(elements.list).gridTemplateColumns
-      .trim().split(/\\s+/).filter(Boolean).length;
+      .trim().split(/\s+/).filter(Boolean).length;
     return Math.max(1, columns || 1);
   }
   function nearestHorizontalElement(elementsToCheck, sourceElement) {
@@ -828,38 +833,55 @@
       return !best || distance < best.distance ? { element, distance } : best;
     }, null).element;
   }
+  function homeRows() {
+    const pick = (root, selector) => root.hidden ? [] : Array.from(root.querySelectorAll(selector));
+    return [
+      [elements.search, $('settings-open')],
+      pick(elements.languageFilterRow, '.language-chip'),
+      pick(elements.groups, '.group-chip'),
+      pick(elements.list, '.channel-card'),
+      elements.empty.classList.contains('visible') && !$('settings-cta').hidden ? [$('settings-cta')] : []
+    ].filter((row) => row.length);
+  }
+  // Home screen d-pad: Up/Down step through rows (top bar, languages, genres, grid),
+  // Left/Right stay inside a row, and Left from a row's first item opens the rail.
+  function moveHome(direction) {
+    const current = document.activeElement;
+    const rail = Array.from(document.querySelectorAll('.rail-item'));
+    const rows = homeRows();
+    const isGrid = (row) => row[0].classList.contains('channel-card');
+    const railIndex = rail.indexOf(current);
+    if (railIndex !== -1) {
+      if (direction === 'ArrowUp') focusAndReveal(rail[railIndex - 1]);
+      if (direction === 'ArrowDown') focusAndReveal(rail[railIndex + 1]);
+      if (direction === 'ArrowRight') focusAndReveal((rows.find(isGrid) || rows[rows.length - 1])[0]);
+      return true;
+    }
+    const rowIndex = rows.findIndex((row) => row.includes(current));
+    if (rowIndex === -1) { focusInitialHomeItem(); return true; }
+    const row = rows[rowIndex];
+    const index = row.indexOf(current);
+    const columns = isGrid(row) ? gridColumnCount() : row.length;
+    const enter = (target) => {
+      if (!target) return;
+      const active = target.find((item) => item.classList.contains('language-chip') && item.classList.contains('active'));
+      focusAndReveal(active || nearestHorizontalElement(isGrid(target) ? target.slice(0, gridColumnCount()) : target, current));
+    };
+    if (direction === 'ArrowLeft') focusAndReveal(index % columns ? row[index - 1] : (document.querySelector('.rail-item.selected') || rail[0]));
+    if (direction === 'ArrowRight' && (index + 1) % columns) focusAndReveal(row[index + 1]);
+    if (direction === 'ArrowUp') { if (index >= columns) focusAndReveal(row[index - columns]); else enter(rows[rowIndex - 1]); }
+    if (direction === 'ArrowDown') {
+      // From the row above a short last row, land on its last channel.
+      const lastRowStart = row.length - 1 - (row.length - 1) % columns;
+      if (isGrid(row)) focusAndReveal(row[index + columns] || (index < lastRowStart ? row[row.length - 1] : null));
+      else enter(rows[rowIndex + 1]);
+    }
+    return true;
+  }
   function moveFocus(direction) {
     const current = document.activeElement;
     const vertical = direction === 'ArrowUp' || direction === 'ArrowDown';
-
-    // Keep vertical navigation inside the channel grid. Generic screen-wide
-    // focus geometry can choose a genre chip while scrolling the channel list,
-    // especially when the list itself has been scrolled.
-    if (vertical && current && current.classList && current.classList.contains('channel-card')) {
-      const cards = Array.from(elements.list.querySelectorAll('.channel-card'));
-      const index = cards.indexOf(current);
-      if (index !== -1) {
-        const columns = gridColumnCount();
-        if (direction === 'ArrowUp') {
-          if (index >= columns) return focusAndReveal(cards[index - columns]);
-          // Only the first channel row may navigate upward to the genre row.
-          const genres = Array.from(elements.groups.querySelectorAll('.group-chip'));
-          return focusAndReveal(nearestHorizontalElement(genres, current)) || true;
-        }
-        // At the bottom of the grid, keep focus in the grid rather than
-        // jumping to unrelated controls. Repeated Down presses remain harmless.
-        const below = cards[index + columns];
-        return below ? focusAndReveal(below) : true;
-      }
-    }
-
-    // Down from a genre chip enters the first row of channels, choosing the
-    // tile closest to the chip's horizontal position.
-    if (direction === 'ArrowDown' && current && current.classList && current.classList.contains('group-chip')) {
-      const cards = Array.from(elements.list.querySelectorAll('.channel-card'));
-      const firstRow = cards.slice(0, gridColumnCount());
-      if (firstRow.length) return focusAndReveal(nearestHorizontalElement(firstRow, current));
-    }
+    if (!elements.dialog.open && !document.body.classList.contains('playing')) return moveHome(direction);
 
     const scope = elements.dialog.open ? elements.dialog : (document.body.classList.contains('playing') ? elements.playerView : document);
     const candidates = focusableElements(scope);
@@ -904,7 +926,12 @@
   $('settings-close').addEventListener('click', () => elements.dialog.close());
   $('settings-done').addEventListener('click', () => elements.dialog.close());
   $('settings-cta').addEventListener('click', () => { if (state.channels.length) openSettings(); else loadChannels(); });
-  document.querySelectorAll('.rail-item').forEach((button) => button.addEventListener('click', () => { state.group = button.dataset.group; syncRail(); render(); button.focus(); }));
+  document.querySelectorAll('.rail-item').forEach((button) => button.addEventListener('click', () => {
+    const list = button.dataset.group;
+    if (list === 'favorites') state.group = 'favorites';
+    else { state.group = 'all'; state.language = list; elements.search.value = ''; }
+    state.selected = -1; render(); button.focus();
+  }));
   elements.search.addEventListener('input', render);
   elements.search.addEventListener('click', activateSearch);
   elements.search.addEventListener('blur', () => {

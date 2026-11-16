@@ -1,6 +1,6 @@
 {
   "id": "com.codex.jtvwebos",
-  "version": "0.3.18",
+  "version": "0.4.1",
   "vendor": "JTV WebOS Community Client",
   "type": "web",
   "main": "index.html",
